@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from app.config import settings
 
-engine = create_engine(settings.DATABASE_URL)
+engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True, connect_args={"connect_timeout": 5})
 SessionLocal = sessionmaker(bind=engine)
 
 
@@ -19,6 +19,8 @@ def get_db():
 
 
 def init_db():
+    import app.models.document  # noqa: F401  (register models on Base before create_all)
+
     with engine.connect() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         conn.commit()

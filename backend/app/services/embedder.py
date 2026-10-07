@@ -1,3 +1,5 @@
+import hashlib
+import random
 import time
 from google import genai
 from google.genai import types
@@ -13,7 +15,16 @@ MAX_RETRIES = 3
 RETRY_DELAY = 2
 
 
+def _fake_embedding(text: str) -> list[float]:
+    if settings.FAKE_EMBED_DELAY_MS:
+        time.sleep(settings.FAKE_EMBED_DELAY_MS / 1000)
+    rng = random.Random(hashlib.sha256(text.encode()).digest())
+    return [rng.uniform(-1, 1) for _ in range(3072)]
+
+
 def embed_text(text: str) -> list[float]:
+    if settings.FAKE_EMBEDDINGS:
+        return _fake_embedding(text)
     for attempt in range(MAX_RETRIES):
         try:
             result = client.models.embed_content(

@@ -1,0 +1,7 @@
+{
+  "identities": [{
+    "name": "docmind",
+    "credentials": [{"accessKey": "CHANGE_ME", "secretKey": "CHANGE_ME"}],
+    "actions": ["Admin", "Read:docmind", "Write:docmind", "List:docmind", "Tagging:docmind"]
+  }]
+}

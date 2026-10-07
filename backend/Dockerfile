@@ -10,4 +10,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+RUN useradd --create-home --uid 10001 appuser && mkdir -p /storage && chown -R appuser /app /storage
+USER 10001
+
+EXPOSE 8000
+
+# Production default (no --reload). docker-compose overrides this for local dev.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

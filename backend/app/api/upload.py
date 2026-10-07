@@ -1,12 +1,11 @@
-import os
 import uuid
-from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.document import Document
 from app.workers.ingestion import ingestion_queue, process_document
-from app.config import settings
+from app.services.storage import save_pdf
+from rq import Retry
 
 router = APIRouter()
 
@@ -17,25 +16,26 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
 
     document_id = str(uuid.uuid4())
-    storage_path = Path(settings.STORAGE_PATH)
-    storage_path.mkdir(parents=True, exist_ok=True)
-    file_path = str(storage_path / f"{document_id}.pdf")
-
     contents = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(contents)
+    storage_key = save_pdf(document_id, contents)
 
     doc = Document(id=document_id, filename=file.filename, status="pending")
     db.add(doc)
     db.commit()
 
-    ingestion_queue.enqueue(process_document, document_id, file_path)
+    ingestion_queue.enqueue(
+        process_document,
+        document_id,
+        storage_key,
+        job_timeout=1800,
+        retry=Retry(max=3, interval=[10, 30, 60]),
+    )
 
     return {"document_id": document_id, "filename": file.filename, "status": "pending"}
 
 
 @router.get("/documents/{document_id}")
-def get_document_status(document_id: str, db: Session = Depends(get_db)):
+def get_document_status(document_id: uuid.UUID, db: Session = Depends(get_db)):
     doc = db.query(Document).filter(Document.id == document_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")

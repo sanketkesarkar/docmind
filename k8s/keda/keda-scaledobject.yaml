@@ -1,0 +1,18 @@
+# Requires KEDA: https://keda.sh/docs/deploy/
+# Scales ingestion workers on the length of the RQ "ingestion" queue (a Redis list).
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: docmind-worker
+  namespace: docmind
+spec:
+  scaleTargetRef:
+    name: docmind-worker
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  triggers:
+    - type: redis
+      metadata:
+        address: redis.docmind.svc.cluster.local:6379
+        listName: rq:queue:ingestion
+        listLength: "3"      # target ~3 queued jobs per worker

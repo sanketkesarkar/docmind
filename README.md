@@ -1,6 +1,6 @@
 # DocMind — RAG Document Intelligence Platform
 
-A production-grade Retrieval-Augmented Generation (RAG) system that lets you upload PDF documents and ask natural-language questions against them. Built with an async ingestion pipeline, hybrid vector + keyword retrieval, and streaming LLM responses with source citations.
+A Retrieval-Augmented Generation (RAG) platform that lets you upload PDF documents and ask natural-language questions against them. Built with an async ingestion pipeline, hybrid vector + keyword retrieval, and streaming LLM responses with source citations.
 
 ---
 
@@ -196,3 +196,15 @@ docmind/
 ## License
 
 MIT
+
+## Kubernetes and regression tests
+
+See [k8s/README.md](k8s/README.md) for Kubernetes deployment, credentials and scaling setup. The current application image is `docmind-backend:0.2.1`.
+
+From `backend`, install `requirements-dev.txt` and run `python -m pytest -q --disable-warnings`. See [TEST_REPORT.md](TEST_REPORT.md) for results and test limitations.
+
+Query endpoints accept optional UUID `document_id` and integer `k` from 1 through 50. Invalid inputs return HTTP 422. All query endpoints check a supplied document's existence/readiness before embedding.
+
+SQL document filters, vectors and limits use bound parameters. Hybrid results retain `score` as the RRF ranking score and expose `cosine_score` separately. Answer routes only pass evidence meeting `MIN_COSINE_SIMILARITY` (default 0.5) to generation and citations. Keyword-only candidates outside the vector candidate set lack a cosine score and are excluded from answer evidence. This conservative policy can reduce recall. The retrieval benchmark still reports raw hybrid candidates and its `top_score` is an RRF score, not confidence.
+
+The threshold is a heuristic, not a calibrated probability or a guarantee of factual answers. Tune it on relevant and irrelevant question/document examples before claiming semantic accuracy.

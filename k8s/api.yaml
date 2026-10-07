@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: docmind-api
+  namespace: docmind
+spec:
+  selector:
+    app: docmind-api
+  ports:
+    - port: 80
+      targetPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docmind-api
+  namespace: docmind
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: docmind-api
+  template:
+    metadata:
+      labels:
+        app: docmind-api
+    spec:
+      containers:
+        - name: api
+          image: docmind-backend:0.2.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef: {name: docmind-config}
+            - secretRef: {name: docmind-secrets}
+          readinessProbe:
+            httpGet: {path: /readyz, port: 8000}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz, port: 8000}
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 250m, memory: 256Mi}
+            limits: {memory: 768Mi}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: docmind-api
+  namespace: docmind
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: docmind-api
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60

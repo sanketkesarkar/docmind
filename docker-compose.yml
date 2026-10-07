@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:0.8.0-pg16
     environment:
       POSTGRES_USER: docmind
       POSTGRES_PASSWORD: docmind
@@ -16,7 +16,10 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.2-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - redis_data:/data
     ports:
       - "6379:6379"
     healthcheck:
@@ -25,8 +28,18 @@ services:
       timeout: 5s
       retries: 10
 
+  seaweedfs:
+    image: chrislusf/seaweedfs:3.85
+    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=256
+    ports:
+      - "8333:8333"
+    volumes:
+      - s3_data:/data
+      - ./k8s/s3.json:/etc/seaweedfs/s3.json:ro
+
   backend:
     build: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
     env_file:
@@ -39,6 +52,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      seaweedfs:
+        condition: service_started
 
   worker:
     build: ./backend
@@ -53,7 +68,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      seaweedfs:
+        condition: service_started
 
 volumes:
+  redis_data:
+  s3_data:
   pgdata:
   docmind_storage:

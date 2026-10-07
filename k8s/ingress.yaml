@@ -1,0 +1,24 @@
+# Assumes ingress-nginx. The annotations keep SSE (/api/v1/query) streaming token by token.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: docmind
+  namespace: docmind
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-body-size: 50m
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: docmind.localtest.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: docmind-api
+                port:
+                  number: 80

@@ -30,13 +30,19 @@ def build_prompt(question: str, chunks: list[dict]) -> str:
     return SYSTEM_PROMPT.format(context=context) + f"\n\nQuestion: {question}"
 
 
-def should_abstain(chunks: list[dict], threshold: float = 0.01) -> bool:
-    if not chunks:
-        return True
-    return chunks[0]["score"] < threshold
+def evidence_chunks(chunks: list[dict], threshold: float | None = None) -> list[dict]:
+    cutoff = settings.MIN_COSINE_SIMILARITY if threshold is None else threshold
+    # Missing cosine scores (e.g. keyword-only candidates) cannot establish semantic evidence.
+    return [chunk for chunk in chunks
+            if chunk.get("cosine_score") is not None and chunk["cosine_score"] >= cutoff]
+
+
+def should_abstain(chunks: list[dict], threshold: float | None = None) -> bool:
+    return not evidence_chunks(chunks, threshold)
 
 
 def stream_answer(question: str, chunks: list[dict]):
+    chunks = evidence_chunks(chunks)
     if should_abstain(chunks):
         yield "I don't have enough information in the provided documents to answer this question."
         return

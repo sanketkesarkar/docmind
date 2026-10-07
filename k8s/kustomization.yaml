@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: docmind
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - postgres.yaml
+  - redis.yaml
+  - seaweedfs.yaml
+  - migrate-job.yaml
+  - api.yaml
+  - worker.yaml
+  - ingress.yaml
+secretGenerator:
+  - name: docmind-secrets
+    envs:
+      - secrets.env
+  - name: seaweedfs-s3
+    files:
+      - s3.json
+generatorOptions:
+  disableNameSuffixHash: true

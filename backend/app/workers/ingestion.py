@@ -1,21 +1,29 @@
 import logging
 import redis
-import json
-from rq import Worker, Queue, Connection
+import os
+import time
+from redis.exceptions import RedisError
+from rq import Worker, Queue
 from app.config import settings
 from app.db.database import SessionLocal
 from app.models.document import Document, Chunk
 from app.services.parser import extract_chunks, get_page_count
 from app.services.embedder import embed_text
+from app.services.storage import local_pdf_path
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-redis_conn = redis.from_url(settings.REDIS_URL)
+redis_conn = redis.from_url(settings.REDIS_URL, socket_connect_timeout=3)
 ingestion_queue = Queue("ingestion", connection=redis_conn)
 
 
-def process_document(document_id: str, file_path: str):
+def process_document(document_id: str, storage_key: str):
+    with local_pdf_path(storage_key) as file_path:
+        _process_document(document_id, file_path)
+
+
+def _process_document(document_id: str, file_path: str):
     db = SessionLocal()
     try:
         doc = db.query(Document).filter(Document.id == document_id).first()
@@ -29,6 +37,7 @@ def process_document(document_id: str, file_path: str):
             return
 
         doc.status = "processing"
+        doc.error = None
         db.commit()
         logger.info(f"Processing document {document_id}: {file_path}")
 
@@ -62,10 +71,11 @@ def process_document(document_id: str, file_path: str):
                 db.commit()
                 logger.info(f"Document {document_id}: {chunk_count} chunks indexed")
 
-        doc.total_chunks = chunk_count
+        db.flush()
+        doc.total_chunks = db.query(Chunk).filter(Chunk.document_id == document_id).count()
         doc.status = "completed"
         db.commit()
-        logger.info(f"Document {document_id} completed: {chunk_count} chunks, {total_pages} pages")
+        logger.info(f"Document {document_id} completed: {doc.total_chunks} chunks, {total_pages} pages")
 
     except Exception as e:
         logger.error(f"Document {document_id} failed: {e}")
@@ -75,12 +85,28 @@ def process_document(document_id: str, file_path: str):
             doc.status = "failed"
             doc.error = str(e)
             db.commit()
+        # re-raise so RQ marks the job failed and applies the Retry policy
+        raise
     finally:
         db.close()
 
 
+def run_worker():
+    # Reconnect in-process during Redis outages; Kubernetes need not restart us.
+    while True:
+        try:
+            redis_conn.ping()
+            worker = Worker([ingestion_queue], connection=redis_conn, name=os.environ.get("HOSTNAME", "docmind-worker"), default_worker_ttl=90, maintenance_interval=60)
+            worker.work(with_scheduler=True)
+            if worker._stop_requested:
+                return
+            logger.warning("RQ worker exited unexpectedly; restarting in 5 seconds")
+            time.sleep(5)
+        except RedisError:
+            logger.exception("Redis unavailable; reconnecting in 5 seconds")
+            time.sleep(5)
+
+
 if __name__ == "__main__":
     logger.info("Starting ingestion worker...")
-    with Connection(redis_conn):
-        worker = Worker([ingestion_queue])
-        worker.work()
+    run_worker()

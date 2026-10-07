@@ -6,7 +6,7 @@ RRF_K = 60  # standard RRF constant
 
 
 def _fetch_all_chunks(db: Session, document_id: str = None) -> list[dict]:
-    doc_filter = f"AND document_id = '{document_id}'" if document_id else ""
+    doc_filter = "AND document_id = CAST(:document_id AS uuid)" if document_id else ""
     sql = f"""
         SELECT id, document_id, page_number, chunk_index, content
         FROM chunks
@@ -14,7 +14,7 @@ def _fetch_all_chunks(db: Session, document_id: str = None) -> list[dict]:
         {doc_filter}
         ORDER BY document_id, page_number, chunk_index
     """
-    rows = db.execute(text(sql)).fetchall()
+    rows = db.execute(text(sql), {"document_id": str(document_id)} if document_id else {}).fetchall()
     return [
         {
             "chunk_id": str(row.id),
@@ -29,19 +29,22 @@ def _fetch_all_chunks(db: Session, document_id: str = None) -> list[dict]:
 
 def similarity_search(db: Session, embedding: list[float], document_id: str = None, k: int = 5) -> list[dict]:
     embedding_literal = "[" + ",".join(str(x) for x in embedding) + "]"
-    doc_filter = f"AND document_id = '{document_id}'" if document_id else ""
+    doc_filter = "AND document_id = CAST(:document_id AS uuid)" if document_id else ""
 
     sql = f"""
         SELECT
             id, document_id, page_number, chunk_index, content,
-            1 - (embedding <=> '{embedding_literal}'::vector) AS score
+            1 - (embedding <=> CAST(:embedding AS vector)) AS score
         FROM chunks
         WHERE embedding IS NOT NULL
         {doc_filter}
-        ORDER BY embedding <=> '{embedding_literal}'::vector
-        LIMIT {k}
+        ORDER BY embedding <=> CAST(:embedding AS vector)
+        LIMIT :limit
     """
-    rows = db.execute(text(sql)).fetchall()
+    parameters = {"embedding": embedding_literal, "limit": k}
+    if document_id:
+        parameters["document_id"] = str(document_id)
+    rows = db.execute(text(sql), parameters).fetchall()
     return [
         {
             "chunk_id": str(row.id),
@@ -78,6 +81,8 @@ def hybrid_search(db: Session, embedding: list[float], query: str, document_id: 
     rrf_scores: dict[str, float] = {}
     chunk_map: dict[str, dict] = {}
 
+    cosine_scores = {chunk["chunk_id"]: chunk["score"] for chunk in vector_results}
+
     for rank, chunk in enumerate(vector_results):
         cid = chunk["chunk_id"]
         rrf_scores[cid] = rrf_scores.get(cid, 0) + 1 / (rank + 1 + RRF_K)
@@ -90,6 +95,6 @@ def hybrid_search(db: Session, embedding: list[float], query: str, document_id: 
 
     ranked = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)[:k]
     return [
-        {**chunk_map[cid], "score": round(score, 6)}
+        {**chunk_map[cid], "score": round(score, 6), "cosine_score": cosine_scores.get(cid)}
         for cid, score in ranked
     ]

@@ -1,0 +1,18 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: docmind-migrate
+  namespace: docmind
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: docmind-backend:0.2.1
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.migrate"]
+          envFrom:
+            - configMapRef: {name: docmind-config}
+            - secretRef: {name: docmind-secrets}
