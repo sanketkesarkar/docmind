@@ -1,8 +1,143 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="DocMind: PDF questions with verifiable page-level citations. Explore a sample document and the engineering behind hybrid retrieval."><title>DocMind | Answers you can trace</title><link rel="stylesheet" href="style.css"></head>
-<body><header><a class="brand" href="#"><span class="icon">D</span> DocMind</a><nav aria-label="Main navigation"><a href="#demo">Demo</a><a href="#architecture">Architecture</a><a href="https://github.com/sanketkesarkar/docmind">GitHub ↗</a></nav></header>
-<main><section class="hero"><div class="eyebrow">PDF KNOWLEDGE · HYBRID RETRIEVAL</div><h1>Ask your PDFs.<br><span>Verify every answer.</span></h1><p class="intro">Less searching through long documents. More answers you can trace back to the page.</p><div class="actions"><a class="button" href="#demo">Explore the sample demo ↓</a><a class="button secondary" href="https://github.com/sanketkesarkar/docmind">View source ↗</a></div><div class="tags"><span>FastAPI</span><span>Redis + RQ</span><span>pgvector + BM25</span><span>Page citations</span></div><div class="hero-note">Built by Sanket Kesarkar</div></section>
-<section id="demo"><div class="eyebrow">01 / SEE IT IN CONTEXT</div><h2>A question. An answer. The source.</h2><p class="description">Explore a fictional operations handbook with pricing, permissions, retention, and support policies.</p><div class="sample-note"><strong>Sample demo</strong> · Preloaded examples in your browser. This page does not upload files or call the DocMind API.</div><div class="demo-grid"><div class="panel"><div class="panel-head">DOCUMENT <a href="assets/CloudHarbor_Operations_Handbook.pdf" target="_blank" rel="noopener">Open full PDF ↗</a></div><div class="document"><div class="doc-label">CLOUDHARBOR / OPERATIONS HANDBOOK</div><h3 id="source-title"></h3><p class="page-number" id="page-number"></p><div id="source-content"></div><div class="paper-footer">Fictional test document · illustrative excerpt</div></div></div><div class="panel qa"><div class="panel-head">ASK A QUESTION <span class="pill">Sample answers</span></div><div class="question-list" role="group" aria-label="Choose a sample question"><button data-example="pricing" aria-pressed="true">What does a Team plan with 18 seats cost?</button><button data-example="annual" aria-pressed="false">What is the annual cost for 18 Team seats?</button><button data-example="missing" aria-pressed="false">What is the CEO’s favorite food?</button></div><div class="answer-wrap" aria-live="polite"><div class="answer-label" id="answer-label">ANSWER</div><h3 id="answer-title"></h3><p id="answer-body"></p><div id="citations"></div><p class="answer-foot" id="answer-foot"></p></div></div></div></section>
-<section id="architecture"><div class="eyebrow">02 / UNDER THE HOOD</div><h2>From PDF to grounded answer.</h2><div class="architecture"><article><span>01</span><h3>Ingest</h3><p>FastAPI accepts documents. Redis and RQ move parsing, chunking, and embedding into background workers.</p></article><article><span>02</span><h3>Retrieve</h3><p>pgvector finds semantically similar passages. BM25 adds keyword matches. Reciprocal rank fusion combines results.</p></article><article><span>03</span><h3>Generate</h3><p>Cosine similarity filters weak evidence before generation. Answers stream with page-level source citations.</p></article></div></section>
-<section><div class="eyebrow">03 / ENGINEERING NOTES</div><h2>The details that changed the design.</h2><div class="lessons"><article><h3>Ranking is not confidence.</h3><p>A passage can rank first and still be irrelevant. Similarity and ranking now serve separate purposes. Threshold calibration is ongoing.</p></article><article><h3>Retries need a scheduler.</h3><p>A delayed retry policy only works when the RQ scheduler is running. Worker configuration matters as much as the policy.</p></article><article><h3>Check the worker itself.</h3><p>A reachable Redis server does not establish worker health. The worker probe checks its own heartbeat.</p></article></div><div class="status"><div><strong>43 regression tests</strong><p>Reported passing in the local test suite.</p></div><div><strong>Local PDF Q&A tested</strong><p>A pricing answer and an answer-text refusal were observed.</p></div><div><strong>Kubernetes configured</strong><p>HPA and KEDA manifests included. Live cluster testing is next.</p></div></div><p class="fine-print">Current limitations: temporary generation-provider failures need better handling, and generated refusals can still return citations and an abstaining=false flag. The demo presents answer text, not a validated confidence score.</p></section>
-<section class="closing"><div class="eyebrow">EXPLORE THE PROJECT</div><h2>The closest passage is a starting point.</h2><p>The goal is an answer you can check.</p><a class="button" href="https://github.com/sanketkesarkar/docmind">Explore DocMind on GitHub ↗</a></section></main><footer><span>DocMind · Sanket Kesarkar</span><a href="https://github.com/sanketkesarkar/docmind">Source code ↗</a></footer><script src="demo.js"></script></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="DocMind: ask questions of your PDFs and get answers with page-level citations. Hybrid retrieval with pgvector, BM25 and reciprocal rank fusion.">
+<meta property="og:title" content="DocMind | Ask your PDFs. Verify every answer.">
+<meta property="og:description" content="Watch a question travel through hybrid retrieval and land on the exact page that supports the answer.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>DocMind | Ask your PDFs. Verify every answer.</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <a class="brand" href="#"><span class="icon">D</span> DocMind</a>
+  <nav aria-label="Main navigation">
+    <a href="#demo">Demo</a>
+    <a href="#architecture">Architecture</a>
+    <a href="https://github.com/sanketkesarkar/docmind">GitHub ↗</a>
+  </nav>
+</header>
+
+<main>
+<section class="hero">
+  <div class="hero-pages" aria-hidden="true">
+    <img src="assets/pages/page-02.jpg" alt="" class="hp hp1">
+    <img src="assets/pages/page-09.jpg" alt="" class="hp hp2">
+    <img src="assets/pages/page-05.jpg" alt="" class="hp hp3">
+  </div>
+  <div class="eyebrow">PDF KNOWLEDGE · HYBRID RETRIEVAL</div>
+  <h1>Ask your PDFs.<br><span>Verify every answer.</span></h1>
+  <p class="intro">Less searching through long documents. More answers you can trace back to the exact page.</p>
+
+  <div class="hero-ask" aria-hidden="true">
+    <div class="ask-bar"><span class="ask-icon">?</span><span id="hero-q"></span><span class="caret"></span></div>
+    <div class="hero-answer" id="hero-answer"><strong>$226 per month</strong><span>before tax</span><em>📄 Page 9</em></div>
+  </div>
+
+  <div class="actions">
+    <a class="button" href="#demo">Try the sample demo ↓</a>
+    <a class="button secondary" href="https://github.com/sanketkesarkar/docmind">View source ↗</a>
+  </div>
+  <div class="tags"><span>FastAPI</span><span>Redis + RQ</span><span>pgvector + BM25</span><span>Gemini</span><span>Page citations</span></div>
+  <div class="hero-note">Built by Sanket Kesarkar</div>
+</section>
+
+<section id="demo">
+  <div class="eyebrow">01 / SEE IT IN CONTEXT</div>
+  <h2>A question. An answer. The page that proves it.</h2>
+  <p class="description">Ask a fictional 10-page operations handbook about pricing, then something it can't answer. Watch each retrieval step, then check the answer against the highlighted page.</p>
+  <div class="sample-note"><strong>Sample demo</strong> · Preloaded examples replayed in your browser. This page does not upload files or call the DocMind API.</div>
+
+  <div class="ask" id="ask">
+    <div class="ask-bar big"><span class="ask-icon">?</span><span id="demo-q" class="q-text">Choose a question below</span><span class="caret" id="demo-caret"></span></div>
+    <div class="chips" role="group" aria-label="Choose a sample question">
+      <span class="chips-label">Try asking</span>
+      <button data-example="pricing" aria-pressed="false">What does a Team plan with 18 seats cost?</button>
+      <button data-example="annual" aria-pressed="false">What is the annual cost for 18 Team seats?</button>
+      <button data-example="missing" aria-pressed="false">What is the CEO’s favorite food?</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel answer-panel">
+      <div class="panel-head">ANSWER <span class="pill" id="answer-pill">Sample answer</span></div>
+      <ol class="pipeline" id="pipeline">
+        <li data-step="embed"><i></i><div><b>Embed the question</b><small>Gemini embedding</small></div></li>
+        <li data-step="search"><i></i><div><b>Search two ways</b><small>pgvector meaning + BM25 keywords</small></div></li>
+        <li data-step="fuse"><i></i><div><b>Fuse the rankings</b><small>Reciprocal rank fusion</small></div></li>
+        <li data-step="check"><i></i><div><b>Check the evidence</b><small>Cosine similarity threshold</small></div></li>
+        <li data-step="stream"><i></i><div><b>Stream the answer</b><small>Server-sent events with citations</small></div></li>
+      </ol>
+      <div class="answer" id="answer" aria-live="polite">
+        <div class="answer-label" id="answer-label">WAITING FOR A QUESTION</div>
+        <h3 id="answer-title"></h3>
+        <p id="answer-body" class="stream"></p>
+        <div id="citations" class="citations"></div>
+        <p class="answer-foot" id="answer-foot"></p>
+      </div>
+    </div>
+
+    <div class="panel doc-panel">
+      <div class="panel-head">CLOUDHARBOR OPERATIONS HANDBOOK <a href="assets/CloudHarbor_Operations_Handbook.pdf" target="_blank" rel="noopener">Open full PDF ↗</a></div>
+      <div class="doc-body">
+        <ol class="strip" id="strip" aria-label="Pages"></ol>
+        <figure class="viewer" id="viewer">
+          <div class="page-wrap" id="page-wrap">
+            <img id="page-img" src="assets/pages/page-01.jpg" alt="Page 1 of the CloudHarbor handbook">
+            <span class="hl" id="hl"></span>
+            <div class="no-match" id="no-match"><b>No page answers this</b><span>The handbook covers pricing, roles, ingestion, retention and support.</span></div>
+          </div>
+          <figcaption id="page-caption">Page 1 of 10 · Company and service overview</figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="architecture">
+  <div class="eyebrow">02 / UNDER THE HOOD</div>
+  <h2>From PDF to grounded answer.</h2>
+  <div class="architecture">
+    <article><span>01</span><h3>Ingest</h3><p>FastAPI accepts documents. Redis and RQ move parsing, chunking and embedding into background workers, with PyMuPDF keeping page numbers.</p></article>
+    <article><span>02</span><h3>Retrieve</h3><p>pgvector finds semantically similar passages. BM25 adds exact keyword matches. Reciprocal rank fusion combines the two lists.</p></article>
+    <article><span>03</span><h3>Generate</h3><p>Cosine similarity filters weak evidence before generation. Answers stream token by token with page-level source citations.</p></article>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">03 / ENGINEERING NOTES</div>
+  <h2>The details that changed the design.</h2>
+  <div class="lessons">
+    <article><h3>Ranking is not confidence.</h3><p>A passage can rank first and still be irrelevant. Similarity and ranking now serve separate purposes. Threshold calibration is ongoing.</p></article>
+    <article><h3>Retries need a scheduler.</h3><p>A delayed retry policy only works when the RQ scheduler is running. Worker configuration matters as much as the policy.</p></article>
+    <article><h3>Check the worker itself.</h3><p>A reachable Redis server does not establish worker health. The worker probe checks its own heartbeat.</p></article>
+  </div>
+  <div class="status">
+    <div><strong>43 regression tests</strong><p>Reported passing in the local test suite.</p></div>
+    <div><strong>Local PDF Q&amp;A tested</strong><p>A pricing answer and an answer-text refusal were observed.</p></div>
+    <div><strong>Kubernetes configured</strong><p>HPA and KEDA manifests included. Live cluster testing is next.</p></div>
+  </div>
+  <p class="fine-print">Current limitations: temporary generation-provider failures need better handling, and generated refusals can still return citations and an abstaining=false flag. The demo presents answer text, not a validated confidence score.</p>
+</section>
+
+<section class="closing">
+  <div class="eyebrow">EXPLORE THE PROJECT</div>
+  <h2>The closest passage is a starting point.</h2>
+  <p>The goal is an answer you can check.</p>
+  <a class="button" href="https://github.com/sanketkesarkar/docmind">Explore DocMind on GitHub ↗</a>
+</section>
+</main>
+
+<footer>
+  <span>DocMind · Sanket Kesarkar</span>
+  <a href="https://github.com/sanketkesarkar/docmind">Source code ↗</a>
+</footer>
+<script src="demo.js"></script>
+</body>
+</html>
