@@ -10,3 +10,5 @@ build/
 venv/
 *.log
 .DS_Store
+k8s/s3.json
+k8s/secrets.env
